@@ -1,5 +1,5 @@
 # bot-monitor
-LINE Bot 監控
+LINE Bot 監控 https://achir1015.github.io/bot-monitor/
 <img width="1270" height="714" alt="image" src="https://github.com/user-attachments/assets/0297ad2c-8434-473c-9e02-175e73832390" />
 這是完整的 HTML 監控儀表板，下載後直接用瀏覽器開啟即可。
 功能說明：
