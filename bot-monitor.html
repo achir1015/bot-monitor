@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LINE Bot 監控儀表板</title>
+  <style>
+    /* ── 主題變數 ─────────────────────────────── */
+    :root {
+      --bg:        #0d1117;
+      --surface:   #161b22;
+      --surface2:  #21262d;
+      --border:    #30363d;
+      --text:      #e6edf3;
+      --muted:     #8b949e;
+      --green:     #3fb950;
+      --green-bg:  #0d2119;
+      --red:       #f85149;
+      --red-bg:    #2d1111;
+      --yellow:    #d29922;
+      --yellow-bg: #2d2011;
+      --blue:      #58a6ff;
+      --radius:    10px;
+      --mono:      'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+      --sans:      'Noto Sans TC', 'Segoe UI', sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      padding: 2rem 1.5rem;
+    }
+
+    /* ── 頁首 ─────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 2.5rem;
+    }
+
+    .logo {
+      width: 38px; height: 38px;
+      background: #00b900;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+    }
+
+    header h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    header p {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .header-right {
+      margin-left: auto;
+      display: flex;
+      gap: 10px;
+    }
+
+    /* ── 全部驗證按鈕 ─────────────────────────── */
+    .btn-verify-all {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 7px 16px;
+      border-radius: var(--radius);
+      font-size: 0.8rem;
+      cursor: pointer;
+      font-family: var(--sans);
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .btn-verify-all:hover { background: #2d333b; border-color: #58a6ff; }
+
+    /* ── Bot 卡片網格 ─────────────────────────── */
+    #bot-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      gap: 1.25rem;
+    }
+
+    /* ── 單張 Bot 卡片 ───────────────────────── */
+    .bot-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      transition: border-color 0.2s;
+    }
+    .bot-card:hover { border-color: #444c56; }
+
+    /* 卡片頂列 */
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 1rem;
+    }
+
+    .bot-avatar {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: var(--surface2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+
+    .bot-name {
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    .bot-channel {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 1px;
+    }
+
+    /* 狀態徽章 */
+    .badge {
+      margin-left: auto;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+    }
+    .badge-idle    { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+    .badge-testing { background: var(--yellow-bg); color: var(--yellow); border: 1px solid #5a4200; }
+    .badge-ok      { background: var(--green-bg);  color: var(--green);  border: 1px solid #1a4d2e; }
+    .badge-error   { background: var(--red-bg);    color: var(--red);    border: 1px solid #5a1515; }
+
+    /* URL 列 */
+    .url-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 8px 12px;
+      margin-bottom: 0.85rem;
+    }
+
+    .url-label {
+      font-size: 0.7rem;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .url-text {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--blue);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+
+    /* 動作列 */
+    .card-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .btn-verify {
+      background: #238636;
+      border: 1px solid #2ea043;
+      color: #fff;
+      padding: 6px 16px;
+      border-radius: 7px;
+      font-size: 0.8rem;
+      font-family: var(--sans);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-verify:hover   { background: #2ea043; }
+    .btn-verify:active  { background: #1c6e2e; }
+    .btn-verify:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .last-check {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-left: auto;
+    }
+
+    /* 訊息區塊 */
+    .result-box {
+      margin-top: 0.85rem;
+      padding: 10px 14px;
+      border-radius: 7px;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-all;
+      display: none;
+    }
+    .result-box.ok    { background: var(--green-bg);  color: var(--green); border: 1px solid #1a4d2e; }
+    .result-box.error { background: var(--red-bg);    color: var(--red);   border: 1px solid #5a1515; }
+
+    /* 載入動畫 */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      display: inline-block;
+      width: 12px; height: 12px;
+      border: 2px solid var(--yellow);
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      vertical-align: middle;
+      margin-right: 5px;
+    }
+
+    /* ── 密鑰欄位列 ──────────────────────────── */
+    .secret-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 7px 12px;
+      margin-bottom: 6px;
+    }
+
+    .secret-label {
+      font-size: 0.68rem;
+      color: var(--muted);
+      flex-shrink: 0;
+      min-width: 60px;
+    }
+
+    /* 遮罩文字：預設顯示 ● 點點 */
+    .secret-value {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      letter-spacing: 0.05em;
+    }
+
+    /* 複製 / 顯示 切換按鈕 */
+    .secret-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 2px 8px;
+      border-radius: 5px;
+      font-size: 0.68rem;
+      cursor: pointer;
+      flex-shrink: 0;
+      font-family: var(--sans);
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .secret-btn:hover { color: var(--blue); border-color: var(--blue); }
+
+    /* ── 加入機器人按鈕 ───────────────────────── */
+    .add-card {
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 2rem;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 0.85rem;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .add-card:hover { border-color: var(--blue); color: var(--blue); }
+
+    /* ── Modal（新增機器人）────────────────────── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.75rem;
+      width: 420px;
+      max-width: 95vw;
+    }
+
+    .modal h2 { font-size: 1rem; font-weight: 600; margin-bottom: 1.25rem; }
+
+    .field { margin-bottom: 1rem; }
+    .field label { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 5px; }
+    .field input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text);
+      padding: 8px 12px;
+      font-size: 0.85rem;
+      font-family: var(--sans);
+      outline: none;
+    }
+    .field input:focus { border-color: var(--blue); }
+
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 1.25rem; }
+    .btn-cancel {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 7px 16px;
+      border-radius: 7px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      font-family: var(--sans);
+    }
+    .btn-add {
+      background: #238636;
+      border: 1px solid #2ea043;
+      color: #fff;
+      padding: 7px 16px;
+      border-radius: 7px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      font-family: var(--sans);
+    }
+    .btn-add:hover { background: #2ea043; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">✦</div>
+  <div>
+    <h1>LINE Bot 監控</h1>
+    <p>Webhook Endpoint 偵測儀表板</p>
+  </div>
+  <div class="header-right">
+    <button class="btn-verify-all" onclick="verifyAll()">▶ 全部驗證</button>
+  </div>
+</header>
+
+<div id="bot-grid">
+  <!-- 機器人卡片由 JS 動態產生 -->
+</div>
+
+<!-- 新增機器人 Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h2>➕ 新增機器人</h2>
+    <div class="field">
+      <label>機器人名稱</label>
+      <input id="inp-name" type="text" placeholder="例：OpenClawBot">
+    </div>
+    <div class="field">
+      <label>Channel 名稱</label>
+      <input id="inp-channel" type="text" placeholder="例：OpenClaw Channel">
+    </div>
+    <div class="field">
+      <label>Webhook URL</label>
+      <input id="inp-url" type="text" placeholder="https://example.com/line/webhook">
+    </div>
+    <div class="field">
+      <label>圖示（Emoji）</label>
+      <input id="inp-icon" type="text" placeholder="🤖" maxlength="4" style="width:80px">
+    </div>
+    <div class="field">
+      <label>Channel Secret</label>
+      <input id="inp-secret" type="text" placeholder="32 字元 hex">
+    </div>
+    <div class="field">
+      <label>Channel Access Token</label>
+      <input id="inp-token" type="text" placeholder="長 token 字串">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">取消</button>
+      <button class="btn-add"    onclick="addBot()">新增</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── 機器人清單（可自由新增）─────────────────────
+let bots = [
+  {
+    id: 'openclaw',
+    name: 'OpenClawBot',
+    channel: 'OpenClawBot',
+    url: 'https://tyche-line.ngrok.app/line/webhook',
+    icon: '🤖',
+    secret:      'fa028aa015d03a41e2dca3c426cd94a3',
+    accessToken: 'BLqhZoxxhICfg0hPxoPKa3UFLYbvi+u9s/AUkqe9nN1mpkOEpuT4T3Gb7WPItDCpqZYQO+qA2A1HlCl8csgsUBaZmZ8kp9IHtXrfElHoobqE7rWPYI8A9VEReI+o+OQQt22tVeWTmvEefYekWfVWlwdB04t89/1O/w1cDnyilFU=',
+    status: 'idle',   // idle | testing | ok | error
+    lastCheck: null,
+    message: ''
+  }
+  // 未來可在此繼續新增更多機器人
+];
+
+// ── 渲染所有卡片 ─────────────────────────────────
+function render() {
+  const grid = document.getElementById('bot-grid');
+  grid.innerHTML = '';
+
+  bots.forEach(bot => {
+    const card = document.createElement('div');
+    card.className = 'bot-card';
+    card.id = 'card-' + bot.id;
+
+    // 徽章
+    const badges = {
+      idle:    ['badge-idle',    '● 待機'],
+      testing: ['badge-testing', '⟳ 測試中'],
+      ok:      ['badge-ok',      '✔ 正常'],
+      error:   ['badge-error',   '✖ 失敗']
+    };
+    const [badgeClass, badgeLabel] = badges[bot.status];
+
+    // 時間
+    const timeStr = bot.lastCheck
+      ? new Date(bot.lastCheck).toLocaleTimeString('zh-TW', {hour12: false})
+      : '';
+
+    // 結果框
+    const resultDisplay = bot.message ? 'block' : 'none';
+    const resultClass   = bot.status === 'ok' ? 'ok' : 'error';
+
+    card.innerHTML = `
+      <div class="card-header">
+        <div class="bot-avatar">${bot.icon}</div>
+        <div>
+          <div class="bot-name">${bot.name}</div>
+          <div class="bot-channel">${bot.channel}</div>
+        </div>
+        <span class="badge ${badgeClass}" id="badge-${bot.id}">${badgeLabel}</span>
+      </div>
+
+      <div class="url-row">
+        <span class="url-label">WEBHOOK</span>
+        <span class="url-text">${bot.url}</span>
+      </div>
+
+      ${bot.secret ? `
+      <div class="secret-row">
+        <span class="secret-label">CH SECRET</span>
+        <span class="secret-value" id="sv-secret-${bot.id}">●●●●●●●●●●●●●●●●●●●●</span>
+        <button class="secret-btn" onclick="toggleSecret('${bot.id}','secret')">顯示</button>
+        <button class="secret-btn" onclick="copyVal('${bot.id}','secret')">複製</button>
+      </div>` : ''}
+
+      ${bot.accessToken ? `
+      <div class="secret-row">
+        <span class="secret-label">ACCESS TOKEN</span>
+        <span class="secret-value" id="sv-token-${bot.id}">●●●●●●●●●●●●●●●●●●●●</span>
+        <button class="secret-btn" onclick="toggleSecret('${bot.id}','token')">顯示</button>
+        <button class="secret-btn" onclick="copyVal('${bot.id}','token')">複製</button>
+      </div>` : ''}
+
+      <div class="card-actions">
+        <button class="btn-verify" id="btn-${bot.id}"
+          onclick="verify('${bot.id}')"
+          ${bot.status === 'testing' ? 'disabled' : ''}>
+          ${bot.status === 'testing' ? '<span class="spinner"></span>驗證中…' : '▶ Verify'}
+        </button>
+        <span class="last-check" id="time-${bot.id}">
+          ${timeStr ? '最後檢查：' + timeStr : '尚未測試'}
+        </span>
+      </div>
+
+      <div class="result-box ${resultClass}" id="result-${bot.id}"
+           style="display:${resultDisplay}">
+${bot.message}
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+
+  // 新增按鈕
+  const addBtn = document.createElement('div');
+  addBtn.className = 'add-card';
+  addBtn.innerHTML = '＋ 新增機器人';
+  addBtn.onclick = openModal;
+  grid.appendChild(addBtn);
+}
+
+// ── 驗證單一機器人 ────────────────────────────────
+async function verify(id) {
+  const bot = bots.find(b => b.id === id);
+  if (!bot) return;
+
+  // 設定狀態：測試中
+  bot.status  = 'testing';
+  bot.message = '';
+  render();
+
+  const startAt = Date.now();
+
+  try {
+    // LINE webhook 通常只接受 POST，但我們用 HEAD/GET 檢查連線
+    // mode: 'no-cors' 讓瀏覽器不擋 CORS；狀態碼會回 0（opaque）
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000); // 8 秒超時
+
+    let result;
+    try {
+      // 先嘗試可讀取 response 的請求（同源或 CORS 開放才有效）
+      const res = await fetch(bot.url, {
+        method: 'POST',
+        signal: ctrl.signal,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ test: true })
+      });
+      clearTimeout(timer);
+      const ms = Date.now() - startAt;
+
+      if (res.ok || res.status === 400 || res.status === 401
+                 || res.status === 403 || res.status === 405) {
+        // 伺服器有回應（即使回 4xx 也代表端點存在）
+        bot.status  = 'ok';
+        bot.message = `✔ 端點可達\n   HTTP ${res.status}  (${ms} ms)\n   URL: ${bot.url}`;
+      } else {
+        bot.status  = 'error';
+        bot.message = `✖ 伺服器回應錯誤\n   HTTP ${res.status} ${res.statusText}  (${ms} ms)\n   URL: ${bot.url}`;
+      }
+    } catch (fetchErr) {
+      clearTimeout(timer);
+      const ms = Date.now() - startAt;
+
+      if (fetchErr.name === 'AbortError') {
+        bot.status  = 'error';
+        bot.message = `✖ 連線逾時（> 8 秒）\n   請確認 ngrok / 伺服器是否正在執行\n   URL: ${bot.url}`;
+      } else if (fetchErr.message.includes('Failed to fetch')
+              || fetchErr.message.includes('NetworkError')) {
+        // 可能是 CORS 限制 → 改用 no-cors 再試一次，只確認網路可達
+        try {
+          const res2 = await fetch(bot.url, {
+            method: 'POST',
+            signal: ctrl.signal,
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ test: true })
+          });
+          // no-cors 回傳 opaque response，status = 0 → 代表端點可達
+          bot.status  = 'ok';
+          bot.message = `✔ 端點可達（opaque response）\n   伺服器已回應，但 CORS 未開放，無法讀取狀態碼\n   (${ms} ms)\n   URL: ${bot.url}`;
+        } catch (e2) {
+          bot.status  = 'error';
+          bot.message = `✖ 網路無法連線\n   ${e2.message}\n   (${ms} ms)\n   URL: ${bot.url}`;
+        }
+      } else {
+        bot.status  = 'error';
+        bot.message = `✖ 發生錯誤\n   ${fetchErr.message}\n   (${ms} ms)\n   URL: ${bot.url}`;
+      }
+    }
+  } catch (e) {
+    bot.status  = 'error';
+    bot.message = `✖ 未知錯誤：${e.message}`;
+  }
+
+  bot.lastCheck = Date.now();
+  render();
+}
+
+// ── 驗證所有機器人 ────────────────────────────────
+function verifyAll() {
+  bots.forEach(b => verify(b.id));
+}
+
+// ── Modal：新增機器人 ─────────────────────────────
+function openModal()  { document.getElementById('modal').classList.add('open'); }
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+function addBot() {
+  const name        = document.getElementById('inp-name').value.trim();
+  const channel     = document.getElementById('inp-channel').value.trim();
+  const url         = document.getElementById('inp-url').value.trim();
+  const icon        = document.getElementById('inp-icon').value.trim() || '🤖';
+  const secret      = document.getElementById('inp-secret').value.trim();
+  const accessToken = document.getElementById('inp-token').value.trim();
+
+  if (!name || !url) { alert('請填寫機器人名稱和 Webhook URL'); return; }
+
+  bots.push({
+    id: 'bot-' + Date.now(),
+    name, channel, url, icon, secret, accessToken,
+    status:    'idle',
+    lastCheck: null,
+    message:   ''
+  });
+
+  closeModal();
+  // 清空欄位
+  ['inp-name','inp-channel','inp-url','inp-icon','inp-secret','inp-token'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  render();
+}
+
+// ── 顯示 / 隱藏 secret 值 ─────────────────────────
+function toggleSecret(id, type) {
+  const bot = bots.find(b => b.id === id);
+  if (!bot) return;
+
+  const elId = type === 'secret' ? `sv-secret-${id}` : `sv-token-${id}`;
+  const el   = document.getElementById(elId);
+  if (!el) return;
+
+  // 判斷目前是否為遮罩狀態（以 ● 開頭）
+  const masked = el.textContent.startsWith('●');
+  const val    = type === 'secret' ? bot.secret : bot.accessToken;
+
+  el.textContent = masked ? val : '●●●●●●●●●●●●●●●●●●●●';
+
+  // 同時更新按鈕文字（找到同一行的第一個 secret-btn）
+  const row  = el.closest('.secret-row');
+  const btn  = row ? row.querySelector('.secret-btn') : null;
+  if (btn) btn.textContent = masked ? '隱藏' : '顯示';
+}
+
+// ── 複製到剪貼簿 ──────────────────────────────────
+function copyVal(id, type) {
+  const bot = bots.find(b => b.id === id);
+  if (!bot) return;
+  const val = type === 'secret' ? bot.secret : bot.accessToken;
+  navigator.clipboard.writeText(val).then(() => {
+    // 找到複製按鈕，短暫顯示「已複製」
+    const elId = type === 'secret' ? `sv-secret-${id}` : `sv-token-${id}`;
+    const el   = document.getElementById(elId);
+    const row  = el ? el.closest('.secret-row') : null;
+    const btns = row ? row.querySelectorAll('.secret-btn') : [];
+    const copyBtn = btns[btns.length - 1]; // 最後一個是「複製」
+    if (copyBtn) {
+      const orig = copyBtn.textContent;
+      copyBtn.textContent = '✔ 已複製';
+      setTimeout(() => { copyBtn.textContent = orig; }, 1500);
+    }
+  }).catch(() => alert('複製失敗，請手動複製'));
+}
+
+// ── 初始渲染 ─────────────────────────────────────
+render();
+</script>
+</body>
+</html>
